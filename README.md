@@ -237,3 +237,34 @@ display(Image(bot.get_graph().draw_mermaid_png()))
 
 result = bot.invoke({"question":"What is the current price of MICROSOFT stock?"})
 print(result["answer"])
+
+6......................................................................................
+
+#6.	Create an AI-Powered Sales Report Analyzer with LlamaIndex
+import os,pandas as pd
+from llama_index.core import *
+from llama_index.core.embeddings import MockEmbedding
+from llama_index.llms.openai_like import OpenAILike
+
+os.environ["GROQ_API_KEY"]=""
+Settings.llm=OpenAILike(model="openai/gpt-oss-20b",
+api_base="https://api.groq.com/openai/v1",
+api_key=os.environ["GROQ_API_KEY"],is_chat_model=True)
+Settings.embed_model=MockEmbedding(embed_dim=384)
+
+df=pd.DataFrame({
+"Month":["Jan","Feb","Mar","Apr","May"],
+"Product":["Laptop","Mobile","Tablet","Laptop","Mobile"],
+"Region":["South","North","East","West","South"],
+"Revenue":[50000,40000,25000,60000,55000],
+"Profit":[10000,8000,4000,12000,11000]})
+
+display(df)
+
+idx=VectorStoreIndex.from_documents([Document(text=df.to_string(index=False))])
+print(idx.as_query_engine().query(
+"""Which product generated the highest total revenue?
+Show calculations for Laptop, Mobile and Tablet.
+Use plain numbers only. Do not use $, USD, or any currency symbol.
+Then state which product has the highest revenue."""
+))
