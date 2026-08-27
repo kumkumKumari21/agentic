@@ -189,69 +189,51 @@ for i in range(2):
     ).content.replace("```python","").replace("```","").strip()
 5........................................................................................................
 #5.	Building a Finance Bot with LangGraph.
-!pip install -q langgraph langchain langchain-core langchain-groq
+!pip install -q langgraph langchain-groq
+
 import os
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langchain_groq import ChatGroq
 from IPython.display import Image, display
-os.environ["GROQ_API_KEY"] = ""
+
+os.environ["GROQ_API_KEY"] = "YOUR_API_KEY"
 llm = ChatGroq(model="openai/gpt-oss-20b")
 
-class FinanceState(TypedDict):
+class State(TypedDict):
     question: str
     stock: str
     price: float
     answer: str
 
-def extract_stock(state: FinanceState):
-    question = state["question"].upper()
-    if "APPLE" in question or "AAPL" in question:
-        stock = "AAPL"
-    elif "TESLA" in question or "TSLA" in question:
-        stock = "TSLA"
-    elif "MICROSOFT" in question or "MSFT" in question:
-        stock = "MSFT"
-    else:
-        stock = "UNKNOWN"
-    return {"stock": stock}
+def stock(s):
+    q = s["question"].upper()
+    return {"stock": "AAPL" if "APPLE" in q or "AAPL" in q
+            else "TSLA" if "TESLA" in q or "TSLA" in q
+            else "MSFT" if "MICROSOFT" in q or "MSFT" in q else "UNKNOWN"}
 
-def get_stock_price(state: FinanceState):
-    fake_prices = {
-        "AAPL": 195.50,
-        "TSLA": 180.25,
-        "MSFT": 420.10,
-        "UNKNOWN": 0.0
-    }
-    price = fake_prices[state["stock"]]
-    return {"price": price}
+def price(s):
+    return {"price": {"AAPL":195.50,"TSLA":180.25,"MSFT":420.10,"UNKNOWN":0}[s["stock"]]}
 
-def generate_answer(state: FinanceState):
-    prompt = f"""
-    You are a finance assistant.
-    User question: {state['question']}
-    Stock symbol: {state['stock']}
-    Stock price: {state['price']}
-    Give a simple financial response.
-    Do not give investment advice.
-    """
-    response = llm.invoke(prompt)
-    return {"answer": response.content}
+def answer(s):
+    return {"answer": llm.invoke(
+        f"Finance assistant. Question: {s['question']}. "
+        f"Stock: {s['stock']}, Price: ${s['price']}. "
+        "Give a simple response. No investment advice."
+    ).content}
 
-graph = StateGraph(FinanceState)
-graph.add_node("extract_stock", extract_stock)
-graph.add_node("get_stock_price", get_stock_price)
-graph.add_node("generate_answer", generate_answer)
-graph.add_edge(START, "extract_stock")
-graph.add_edge("extract_stock", "get_stock_price")
-graph.add_edge("get_stock_price", "generate_answer")
-graph.add_edge("generate_answer", END)
-finance_bot = graph.compile()
-display(
-    Image(finance_bot.get_graph().draw_mermaid_png())
-)
+g = StateGraph(State)
+g.add_node("Stock", stock)
+g.add_node("Price", price)
+g.add_node("Answer", answer)
+g.add_edge(START,"Stock")
+g.add_edge("Stock","Price")
+g.add_edge("Price","Answer")
+g.add_edge("Answer",END)
 
-result = finance_bot.invoke({
-    "question": "What is the current price of MICROSOFT stock?"
-})
+bot = g.compile()
+
+display(Image(bot.get_graph().draw_mermaid_png()))
+
+result = bot.invoke({"question":"What is the current price of MICROSOFT stock?"})
 print(result["answer"])
