@@ -152,104 +152,41 @@ print("Playground: http://127.0.0.1:8002/chat/playground/")
 
 4..................................................................................................
 #4.	Build a Self-correcting Coding Assistant with LangChain
-!pip install -q langchain langchain-core langchain-groq
 
-import os
-import subprocess
-import tempfile
+!pip install -q langchain-groq
+
+import os, subprocess, tempfile
 from langchain_groq import ChatGroq
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 
 os.environ["GROQ_API_KEY"] = ""
-
 llm = ChatGroq(model="openai/gpt-oss-20b")
 
-code_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are an expert Python coding assistant. "
-     "Generate only executable Python code. "
-     "Do not use markdown. Do not explain."),
-    ("user", "{task}")
-])
+task = "Calculate factorial of 5 using recursion."
 
-fix_prompt = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are a self-correcting Python coding assistant. "
-     "Fix the given code using the error message. "
-     "Return only corrected executable Python code. "
-     "Do not use markdown. Do not explain."),
-    ("user",
-     "Task:\n{task}\n\nCode:\n{code}\n\nError:\n{error}")
-])
+code = """def factorial(n):
+    if n == 0:
+        return 1
+    return n * factorial(n-1)
 
-code_chain = code_prompt | llm | StrOutputParser()
-fix_chain = fix_prompt | llm | StrOutputParser()
+print(fact(5))"""
 
-
-def clean_code(code):
-    code = code.replace("```python", "").replace("```", "")
-    return code.strip()
-
-
-def run_python_code(code):
+for i in range(2):
+    print(f"\nAttempt {i+1}:\n{code}")
+    
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
-        f.write(code)
-        file_path = f.name
+        f.write(code); path = f.name
 
-    result = subprocess.run(
-        ["python", file_path],
-        capture_output=True,
-        text=True,
-        timeout=10
-    )
+    r = subprocess.run(["python", path], capture_output=True, text=True)
 
-    if result.returncode == 0:
-        return True, result.stdout
-    else:
-        return False, result.stderr
+    if r.returncode == 0:
+        print("\nOutput:", r.stdout)
+        break
 
+    print("\nError:", r.stderr.strip())
 
-def self_correcting_coding_assistant(task, max_attempts=3):
-    print("USER TASK:")
-    print(task)
-    print("\nGenerating code...\n")
-
-    code = clean_code(code_chain.invoke({"task": task}))
-
-    # Intentionally inject a bug for demonstration
-    if "factorial" in task.lower():
-      code = code.replace("factorial(5)", "fact(5)")
-    for attempt in range(1, max_attempts + 1):
-        print(f"\nAttempt {attempt}")
-        print("-" * 40)
-        print(code)
-
-        success, output = run_python_code(code)
-
-        if success:
-            print("\nCode executed successfully!")
-            print("\nOUTPUT:")
-            print(output)
-            return code
-
-        print("\nError found:")
-        print(output)
-
-        print("\nCorrecting code...\n")
-        code = clean_code(
-            fix_chain.invoke({
-                "task": task,
-                "code": code,
-                "error": output
-            })
-        )
-
-    print("\nCould not fix the code within max attempts.")
-    return code
-final_code = self_correcting_coding_assistant(
-    "Write Python code to calculate factorial of 5 using recursion."
-)
+    code = llm.invoke(
+        f"Fix this code. Return only code.\nCode:\n{code}\nError:\n{r.stderr}"
+    ).content.replace("```python","").replace("```","").strip()
 5........................................................................................................
 #5.	Building a Finance Bot with LangGraph.
 !pip install -q langgraph langchain langchain-core langchain-groq
